@@ -9,12 +9,7 @@ terraform {
 
 provider "azurerm" {
   features {}
-  subscription_id = "1665b74d-faef-4dc7-bad6-1472afd412b6"
-}
-
-resource "azurerm_resource_group" "arg" {
-  name     = "TaskBoardRG"
-  location = "germanywestcentral"
+  subscription_id = var.subscription_id
 }
 
 resource "random_integer" "ri" {
@@ -23,8 +18,15 @@ resource "random_integer" "ri" {
 
 }
 
+resource "azurerm_resource_group" "arg" {
+  name     = "${var.resource_group_name}-${random_integer.ri.result}"
+  location = var.location
+}
+
+
+
 resource "azurerm_service_plan" "asp" {
-  name                = "TaskBoardASP${random_integer.ri.result}"
+  name                = "${var.app_service_plan_name}-${random_integer.ri.result}"
   resource_group_name = azurerm_resource_group.arg.name
   location            = azurerm_resource_group.arg.location
   os_type             = "Linux"
@@ -32,7 +34,7 @@ resource "azurerm_service_plan" "asp" {
 }
 
 resource "azurerm_linux_web_app" "alwapp" {
-  name                = "TaskBoardApp${random_integer.ri.result}"
+  name                = "${var.app_service_name}-${random_integer.ri.result}"
   resource_group_name = azurerm_resource_group.arg.name
   location            = azurerm_service_plan.asp.location
   service_plan_id     = azurerm_service_plan.asp.id
@@ -56,17 +58,17 @@ resource "azurerm_linux_web_app" "alwapp" {
 }
 
 resource "azurerm_mssql_server" "sqlserver" {
-  name                         = "mssqlserver-${random_integer.ri.result}"
+  name                         = "${var.sql_server_name}${random_integer.ri.result}"
   resource_group_name          = azurerm_resource_group.arg.name
   location                     = azurerm_resource_group.arg.location
   version                      = "12.0"
-  administrator_login          = "missadministrator"
-  administrator_login_password = "thisIsKat11"
+  administrator_login          = var.sql_admin_username
+  administrator_login_password = var.sql_admin_password
 
 }
 
 resource "azurerm_mssql_database" "database" {
-  name                 = "task-board-db"
+  name                 = "${var.sql_database_name}-${random_integer.ri.result}"
   server_id            = azurerm_mssql_server.sqlserver.id
   collation            = "SQL_Latin1_General_CP1_CI_AS"
   license_type         = "LicenseIncluded"
@@ -84,7 +86,7 @@ resource "azurerm_mssql_database" "database" {
 }
 
 resource "azurerm_mssql_firewall_rule" "firewall_rule" {
-  name             = "FirewallRule1"
+  name             = var.firewall_rule_name
   server_id        = azurerm_mssql_server.sqlserver.id
   start_ip_address = "0.0.0.0"
   end_ip_address   = "0.0.0.0"
@@ -93,7 +95,7 @@ resource "azurerm_mssql_firewall_rule" "firewall_rule" {
 
 resource "azurerm_app_service_source_control" "assc" {
   app_id                 = azurerm_linux_web_app.alwapp.id
-  repo_url               = "https://github.com/svdimov/TaskBoard-Terraform.git"
+  repo_url               = var.github_repo_url
   branch                 = "main"
   use_manual_integration = true
 }
